@@ -1,1 +1,2 @@
 # Snippetbox
+This repository is an improved implementation of the Snippetbox by [jaymorelli96](https://github.com/jaymorelli96/Snippetbox). It is the final project of the course "Ruby on Rails and Golang Web Applications" by the Federal University of São Paulo.
