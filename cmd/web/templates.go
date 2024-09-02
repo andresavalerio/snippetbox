@@ -16,6 +16,7 @@ type templateData struct {
 	CurrentYear     int
 	Snippet         *models.Snippet
 	Snippets        []*models.Snippet
+	Comments				[]*models.Comment
 	User            *models.User
 	Form            any
 	Flash           string
