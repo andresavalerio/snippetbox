@@ -55,6 +55,14 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	data := app.newTemplateData(r)
 	data.Snippets = snippets
+	for _, snippet := range snippets {
+		comments, err := app.comments.GetBySnippetID(snippet.ID)
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+		snippet.CommentsNumber = len(comments)
+	}
 
 	app.render(w, http.StatusOK, "home.tmpl.html", data)
 }

@@ -15,25 +15,30 @@
     </div>
     {{end}}
     <div class="comment-section">
-        <h2>{{len .Comments}} Comments</h2>
         {{if .IsAuthenticated}}
-        <div class="comment-form">
-            <form action='/comment/create' method='POST'>
-                <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
-                <input type='hidden' name='snippet_id' value='{{.Snippet.ID}}'>
-                <input type='hidden' name='author' value='{{.User.Name}}'>
-                
-                <div>
-                    {{with .Form.FieldErrors.content}}
-                        <label class='error'>{{.}}</label>
-                    {{end}}
-                    <textarea name='content' class='comment' placeholder='{{if eq (len .Comments) 0}}Be the first to comment...{{else}}Add a comment...{{end}}'>{{.Form.Content}}</textarea>
-                    <input type='submit' value='Publish comment'>
-                </div>
-            </form>
-        </div>
+            {{if not (len .Comments)}}
+                <h2>Be the first to comment!</h2>
+            {{else}}
+                <h2>{{len .Comments}} Comments</h2>
+            {{end}}
+            <div class="comment-form">
+                  <form action='/comment/create' method='POST'>
+                      <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+                      <input type='hidden' name='snippet_id' value='{{.Snippet.ID}}'>
+                      <input type='hidden' name='author' value='{{.User.Name}}'>
+                      
+                      <div>
+                          {{with .Form.FieldErrors.content}}
+                              <label class='error'>{{.}}</label>
+                          {{end}}
+                          <textarea name='content' class='comment' placeholder='{{if eq (len .Comments) 0}}Be the first to comment...{{else}}Add a comment...{{end}}'>{{.Form.Content}}</textarea>
+                          <input type='submit' value='Publish comment'>
+                      </div>
+                  </form>
+              </div>
+        {{else}}
+            <h2>{{len .Comments}} Comments</h2>
         {{end}}
-        
         {{if .Comments}}
         <ul>
             {{range .Comments}}
@@ -55,8 +60,6 @@
             </li>
             {{end}}
         </ul>
-        {{else}}
-        <p class="no-comments">No comments yet.</p>
         {{end}}
     </div>
 {{end}}

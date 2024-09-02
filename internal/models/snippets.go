@@ -18,6 +18,7 @@ type Snippet struct {
 	Content string
 	Created time.Time
 	Expires time.Time
+	CommentsNumber int
 }
 
 // SnippetModel wraps a sql.DB conn pool.
