@@ -48,6 +48,18 @@ func (app *application) routes() http.Handler {
 		),
 	)
 	router.Handler(
+		http.MethodPost, "/comment/create",
+		app.sessionManager.LoadAndSave(
+			app.authenticate(app.requireAuthentication(http.HandlerFunc(app.commentCreatePost))),
+		),
+	)
+	router.Handler(
+		http.MethodGet, "/comment/vote/:id/:value",
+		app.sessionManager.LoadAndSave(
+			app.authenticate(app.requireAuthentication(http.HandlerFunc(app.voteComment))),
+		),
+	)
+	router.Handler(
 		http.MethodGet, "/user/signup",
 		app.sessionManager.LoadAndSave(
 			app.authenticate(http.HandlerFunc(app.userSignup)),

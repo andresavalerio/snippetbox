@@ -19,6 +19,13 @@ type snippetCreateForm struct {
 	validator.Validator `form:"-"`
 }
 
+type commentCreateForm struct {
+	Content             string `form:"content"`
+	Author              string `form:"author"`
+	Snippet_ID          int    `form:"snippet_id"`
+	validator.Validator `form:"-"`
+}
+
 type userSignupForm struct {
 	Name                string `form:"name"`
 	Email               string `form:"email"`
@@ -48,6 +55,14 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	data := app.newTemplateData(r)
 	data.Snippets = snippets
+	for _, snippet := range snippets {
+		comments, err := app.comments.GetBySnippetID(snippet.ID)
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+		snippet.CommentsNumber = len(comments)
+	}
 
 	app.render(w, http.StatusOK, "home.tmpl.html", data)
 }
@@ -79,6 +94,42 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data.Snippet = snippet
 
+	// Comments
+	comments, err := app.comments.GetBySnippetID(id)
+
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	data.Comments = comments
+
+	// User
+
+	if app.isAuthenticated(r) {
+		user_id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+
+		usr, err := app.users.Get(user_id)
+		if err != nil {
+			if errors.Is(err, models.ErrNoRecord) {
+				app.notFound(w)
+			} else {
+				app.serverError(w, err)
+			}
+			return
+		}
+
+		data.User = usr
+		data.Form = commentCreateForm{
+			Snippet_ID: id,
+			Author:		usr.Name,
+		}
+	} else {
+		data.Form = commentCreateForm{
+			Snippet_ID: id,
+		}
+	}
+
 	app.render(w, http.StatusOK, "view.tmpl.html", data)
 }
 
@@ -108,6 +159,7 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 	if !form.Valid() {
 		data := app.newTemplateData(r)
 		data.Form = form
+		fmt.Println(form)
 		app.render(w, http.StatusUnprocessableEntity, "create.tmpl.html", data)
 		return
 	}
@@ -122,6 +174,98 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+}
+
+func (app *application) commentCreatePost(w http.ResponseWriter, r *http.Request) {
+	var form commentCreateForm
+
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
+	form.CheckField(validator.MaxChars(form.Content, 200), "content", "This field cannot be more than 200 characters long")
+
+	if !form.Valid() {
+		snippet, err := app.snippets.Get(form.Snippet_ID)
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+
+		comments, err := app.comments.GetBySnippetID(form.Snippet_ID)
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+
+		usr, err := app.users.Get(app.sessionManager.GetInt(r.Context(), "authenticatedUserID"))
+		if err != nil {
+			app.serverError(w, err)
+			return
+		}
+
+		data := app.newTemplateData(r)
+		data.Form = form
+		data.Snippet = snippet
+		data.Comments = comments
+		data.User = usr
+		app.render(w, http.StatusUnprocessableEntity, "view.tmpl.html", data)
+		return
+	}
+
+	_, err = app.comments.Insert(form.Snippet_ID, form.Author, form.Content)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.sessionManager.Put(r.Context(), "flash", "Comment successfully created!")
+
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", form.Snippet_ID), http.StatusSeeOther)
+}
+
+func (app *application) voteComment(w http.ResponseWriter, r *http.Request) {
+	params := httprouter.ParamsFromContext(r.Context())
+	id, err := strconv.Atoi(params.ByName("id"))
+	if err != nil || id < 1 {
+		app.notFound(w)
+		return
+	}
+
+	value, err := strconv.Atoi(params.ByName("value"))
+	if err != nil || (value != 1 && value != -1) {
+		app.notFound(w)
+		return
+	}
+
+	user_id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+
+	var message string
+
+	if value == 1 {
+		message, err = app.comments.Upvote(id, user_id)
+	} else {
+		message, err = app.comments.Downvote(id, user_id)
+	}
+
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	comment, err := app.comments.Get(id)
+
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.sessionManager.Put(r.Context(), "flash", message)
+
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", comment.SnippetID), http.StatusSeeOther)
 }
 
 func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
